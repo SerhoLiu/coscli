@@ -61,7 +61,6 @@ def cos_put(cos_config, srcs, uri, force, checksum, p):
     total = 0
     local_files = []
     for path in globs:
-        print path
         if os.path.isfile(path):
             files = [path]
             is_file = True
