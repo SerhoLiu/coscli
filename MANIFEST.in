@@ -1,0 +1,3 @@
+include README.md
+include MIT-LICENSE.txt
+include coscli-example.cfg

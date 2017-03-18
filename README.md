@@ -6,11 +6,11 @@ coscli - 一个简单的腾讯云 COS 命令行工具, 当前仅支持 Python2
 
 使用 `pip`
 
-    $ pip install awscli
+    $ pip install coscli
 
 升级
 
-    $ pip install --upgrade awscli
+    $ pip install --upgrade coscli
 
 
 ### 使用
