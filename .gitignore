@@ -1,0 +1,6 @@
+.idea/
+test/
+test.txt
+coscli.egg-info/
+coscli.cfg
+*.py[c,o]
