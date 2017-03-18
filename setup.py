@@ -35,7 +35,7 @@ setup(
         ]
     },
     license="MIT License",
-    classifiers=(
+    classifiers=[
         "Development Status :: 3 - Alpha",
         "Environment :: Console",
         "Intended Audience :: Developers",
@@ -46,5 +46,5 @@ setup(
         "Programming Language :: Python :: 2.6",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 2 :: Only",
-    )
+    ]
 )
