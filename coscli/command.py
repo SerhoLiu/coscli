@@ -15,17 +15,15 @@ def cos_ls(cos_config, uri, human):
     cos = COS(cos_config)
     cos_uri = COSUri(uri)
 
-    if cos_uri.path.endswith("/"):
-        if not cos.dir_exists(cos_uri.bucket, cos_uri.path):
-            output("Dir '%s' not exists" % uri)
-            return
+    if cos.file_exists(cos_uri.bucket, cos_uri.path):
+        paths = [cos_uri.path]
+    elif cos.dir_exists(cos_uri.bucket, cos_uri.path):
+        if not cos_uri.path.endswith("/"):
+            cos_uri.path += "/"
         paths = list(cos.iter_path(cos_uri.bucket, cos_uri.path))
     else:
-        if not cos.file_exists(cos_uri.bucket, cos_uri.path):
-            output("File '%s' not exists" % uri)
-            return
-
-        paths = [cos_uri.path]
+        output("Path '%s' not exists" % uri)
+        return
 
     # (mtime, size, name)
     records = []
@@ -139,6 +137,8 @@ def cos_get(cos_config, uri, dst, force, skip, checksum, p):
         cos_files.append(cos_uri.path)
     elif cos.dir_exists(cos_uri.bucket, cos_uri.path):
         is_file = False
+        if not cos_uri.path.endswith("/"):
+            cos_uri.path += "/"
         for filepath in cos.walk_path(cos_uri.bucket, cos_uri.path):
             cos_files.append(filepath)
     else:
@@ -161,7 +161,7 @@ def cos_get(cos_config, uri, dst, force, skip, checksum, p):
         # - cos path 是文件, 则 dst/basename(cos path)
         # - cos path 是文件夹, 则 dst/dir/filename
 
-        prefix_len = len(posixpath.dirname(cos_uri.path.rstrip("/"))) + 1
+        prefix_len = len(posixpath.dirname(cos_uri.path.rstrip("/")))
         for cos_path in cos_files:
             if is_file:
                 local_file = os.path.join(dst, posixpath.basename(cos_path))
@@ -195,6 +195,9 @@ def cos_del(cos_config, uri, recursive, p):
         if not recursive:
             output("Path '%s' is dir, use --recursive/-r" % uri)
             return
+
+        if not cos_uri.path.endswith("/"):
+            cos_uri.path += "/"
         for filepath in cos.walk_path(cos_uri.bucket, cos_uri.path):
             cos_files.append(filepath)
     else:
