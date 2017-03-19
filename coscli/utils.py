@@ -22,7 +22,9 @@ class COSUri(object):
     def __init__(self, uri):
         match = self._re.match(uri)
         if not match:
-            raise ValueError("%s: not a COS URI" % uri)
+            raise ValueError(
+                "'%s' not a COS URI, need like 'cosn://bucket/xxxx'" % uri
+            )
 
         groups = match.groups()
 
