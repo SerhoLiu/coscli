@@ -6,9 +6,9 @@ import glob
 import posixpath
 
 from coscli.cos import COS
-from coscli.tools import Uploader, Downloader, Deleter
 from coscli.utils import COSUri, output
 from coscli.utils import format_datetime, format_size, list_dir_files
+from coscli.tools import Uploader, Downloader, Deleter, Mover
 
 
 def cos_ls(config, uri, human):
@@ -82,9 +82,10 @@ def cos_put(config, srcs, uri, force, checksum, p):
 
     # 多个文件只能 put 到目录下
     if total > 1 and not cos_uri.path.endswith("/"):
-        raise Exception(
+        output(
             "multiple files must put to dir, %s need endswith '/'" % uri
         )
+        return
 
     tasks = []
     for src, is_file, files in local_files:
@@ -99,7 +100,7 @@ def cos_put(config, srcs, uri, force, checksum, p):
             if is_file:
                 if cos_uri.path.endswith("/"):
                     basename = os.path.basename(file_path)
-                    dest = os.path.join(cos_uri.path, basename)
+                    dest = posixpath.join(cos_uri.path, basename)
                 else:
                     dest = cos_uri.path
             else:
@@ -208,3 +209,62 @@ def cos_del(config, uri, recursive, p):
         deleter.parallel_delete(p)
     else:
         deleter.simple_delete()
+
+
+def cos_mv(config, usrc, udst, force, recursive, p):
+    cos = COS(config.cos_config)
+    src_uri = COSUri(usrc)
+    dst_uri = COSUri(udst)
+
+    if src_uri.bucket != dst_uri.bucket:
+        output("Cos mv should in same bucket")
+        return
+
+    cos_files = []
+    if cos.file_exists(src_uri.bucket, src_uri.path):
+        is_file = True
+        cos_files.append(src_uri.path)
+    elif cos.dir_exists(src_uri.bucket, src_uri.path):
+        if not recursive:
+            output("Path '%s' is dir, use --recursive/-r" % usrc)
+            return
+
+        if not dst_uri.path.endswith("/"):
+            output("Dst '%s' must dir, need endswith '/'" % udst)
+            return
+
+        is_file = False
+        if not src_uri.path.endswith("/"):
+            src_uri.path += "/"
+        for filepath in cos.walk_path(src_uri.bucket, src_uri.path):
+            cos_files.append(filepath)
+    else:
+        output("Path '%s' not exists" % usrc)
+        return
+
+    total = len(cos_files)
+    output("Found %d items to mv" % total)
+
+    if total == 0:
+        return
+
+    tasks = []
+    prefix_len = len(posixpath.dirname(src_uri.path.rstrip("/")))
+    for cos_file in cos_files:
+        if is_file:
+            if dst_uri.path.endswith("/"):
+                basename = posixpath.basename(cos_file)
+                dest = posixpath.join(dst_uri.path, basename)
+            else:
+                dest = dst_uri.path
+        else:
+            name = cos_file[prefix_len:].lstrip(os.path.sep)
+            dest = posixpath.join(dst_uri.path, name)
+
+        tasks.append((cos_file, dest))
+
+    mover = Mover(config, src_uri.bucket, tasks, force)
+    if p > 1:
+        mover.parallel_move(p)
+    else:
+        mover.simple_move()

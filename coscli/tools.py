@@ -236,3 +236,68 @@ class Deleter(object):
                 COSUri.compose_uri(self.bucket, cos_path),
                 str(e)
             ))
+
+
+class Mover(object):
+
+    def __init__(self, config, bucket, tasks, force):
+        self.cos_config = config.cos_config
+        self.dry_run = config.dry_run
+
+        self.bucket = bucket
+        self.tasks = tasks
+        self.force = force
+
+    def simple_move(self):
+        cos = COS(self.cos_config)
+
+        total = len(self.tasks)
+        for index, task in enumerate(self.tasks):
+            self._move(total, index+1, cos, task)
+
+    def parallel_move(self, count):
+
+        def setup():
+            return COS(self.cos_config)
+
+        def work(ctx, job):
+            cos = ctx
+            _total, _index, _task = job
+            self._move(_total, _index, cos, _task)
+
+        worker = ThreadWorker(count, setup=setup, work=work)
+        total = len(self.tasks)
+        for index, task in enumerate(self.tasks):
+            worker.add_job((total, index+1, task))
+
+        worker.start()
+
+    def _move(self, total, index, cos, task):
+        sformat = "(%s/%s) mv: %s -> %s (%s)"
+        cos_src, cos_dest = task
+
+        try:
+            if self.dry_run:
+                msg = "dry run"
+            else:
+                msg = self._do_mv(cos, task)
+        except Exception as e:
+            msg = str(e)
+
+        output(sformat % (
+            index, total,
+            COSUri.compose_uri(self.bucket, cos_src),
+            COSUri.compose_uri(self.bucket, cos_dest),
+            msg
+        ))
+
+    def _do_mv(self, cos, task):
+        cos_src, cos_dest = task
+
+        if not self.force:
+            if cos.file_exists(self.bucket, cos_dest):
+                return "error: dest exists"
+
+        cos.move(self.bucket, cos_src, cos_dest)
+
+        return "ok"
