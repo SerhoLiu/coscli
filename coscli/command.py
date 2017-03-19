@@ -11,8 +11,8 @@ from coscli.utils import COSUri, output
 from coscli.utils import format_datetime, format_size, list_dir_files
 
 
-def cos_ls(cos_config, uri, human):
-    cos = COS(cos_config)
+def cos_ls(config, uri, human):
+    cos = COS(config.cos_config)
     cos_uri = COSUri(uri)
 
     if cos.file_exists(cos_uri.bucket, cos_uri.path):
@@ -50,8 +50,7 @@ def cos_ls(cos_config, uri, human):
         output("%19s %10s %s" % record)
 
 
-def cos_put(cos_config, srcs, uri, force, checksum, p):
-    cos = COS(cos_config)
+def cos_put(config, srcs, uri, force, checksum, p):
     cos_uri = COSUri(uri)
 
     globs = []
@@ -114,15 +113,15 @@ def cos_put(cos_config, srcs, uri, force, checksum, p):
 
             tasks.append((file_path, dest))
 
-    uploader = Uploader(cos_config, cos_uri.bucket, tasks, force, checksum)
+    uploader = Uploader(config, cos_uri.bucket, tasks, force, checksum)
     if p > 1:
         uploader.parallel_upload(p)
     else:
         uploader.simple_upload()
 
 
-def cos_get(cos_config, uri, dst, force, skip, checksum, p):
-    cos = COS(cos_config)
+def cos_get(config, uri, dst, force, skip, checksum, p):
+    cos = COS(config.cos_config)
     cos_uri = COSUri(uri)
 
     cos_files = []
@@ -170,7 +169,7 @@ def cos_get(cos_config, uri, dst, force, skip, checksum, p):
         raise Exception("WTF? Is it a dir or not? -- %s" % dst)
 
     downloader = Downloader(
-        cos_config, cos_uri.bucket, tasks, force, skip, checksum
+        config, cos_uri.bucket, tasks, force, skip, checksum
     )
     if p > 1:
         downloader.parallel_download(p)
@@ -178,8 +177,8 @@ def cos_get(cos_config, uri, dst, force, skip, checksum, p):
         downloader.simple_download()
 
 
-def cos_del(cos_config, uri, recursive, p):
-    cos = COS(cos_config)
+def cos_del(config, uri, recursive, p):
+    cos = COS(config.cos_config)
     cos_uri = COSUri(uri)
 
     cos_files = []
@@ -204,7 +203,7 @@ def cos_del(cos_config, uri, recursive, p):
     if total == 0:
         return
 
-    deleter = Deleter(cos_config, cos_uri.bucket, cos_files)
+    deleter = Deleter(config, cos_uri.bucket, cos_files)
     if p > 1:
         deleter.parallel_delete(p)
     else:

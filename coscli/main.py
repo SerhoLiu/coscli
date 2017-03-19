@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import sys
 import click
 import os.path
 import qcloud_cos as qcos
@@ -28,6 +29,9 @@ class CliConfig(object):
 
         self._check_cos_config()
 
+        self.dry_run = False
+        self.debug = False
+
     def _check_cos_config(self):
         try:
             int(self.cos_config["appid"])
@@ -42,15 +46,27 @@ class CliConfig(object):
         qcos.CosClient(appid, key, secret, region)
 
 
+def handle_exception(e, debug):
+    if debug:
+        exc_type, exc_value, tb = sys.exc_info()
+        assert exc_value is e
+        raise exc_type, exc_value, tb
+    else:
+        raise SystemExit("\n%s" % e)
+
+
 pass_config = click.make_pass_decorator(CliConfig)
 
 
 @click.group()
 @click.option("--config", type=click.Path(), envvar="COSCLI_CONFIG",
               help="Changes the coscli config file.")
+@click.option("--dryrun", "-n", is_flag=True,
+              help="Only show what should be do.")
+@click.option("--debug", "-d", is_flag=True, help="Enable debug output.")
 @click.version_option(__version__)
 @click.pass_context
-def cli(ctx, config):
+def cli(ctx, config, dryrun, debug):
     """
     Coscli is simple command line tool for qcloud cos
     """
@@ -65,6 +81,9 @@ def cli(ctx, config):
             f.read()
 
         conf = CliConfig(config)
+
+        conf.dry_run = dryrun
+        conf.debug = debug
     except Exception as e:
         raise SystemExit("\ncos config error: %s" % e)
 
@@ -80,9 +99,9 @@ def ls_command(config, uri, human):
     List path file or directory
     """
     try:
-        command.cos_ls(config.cos_config, uri, human)
+        command.cos_ls(config, uri, human)
     except Exception as e:
-        raise SystemExit("\n%s" % e)
+        handle_exception(e, config.debug)
 
 
 @cli.command(name="put")
@@ -97,9 +116,9 @@ def put_command(config, src, uri, force, checksum, p):
     Put local file or directory to COS
     """
     try:
-        command.cos_put(config.cos_config, src, uri, force, checksum, p)
+        command.cos_put(config, src, uri, force, checksum, p)
     except Exception as e:
-        raise SystemExit("\n%s" % e)
+        handle_exception(e, config.debug)
 
 
 @cli.command(name="get")
@@ -115,9 +134,9 @@ def get_command(config, uri, dst, force, skip, checksum, p):
     Get COS file or directory to local
     """
     try:
-        command.cos_get(config.cos_config, uri, dst, force, skip, checksum, p)
+        command.cos_get(config, uri, dst, force, skip, checksum, p)
     except Exception as e:
-        raise SystemExit("\n%s" % e)
+        handle_exception(e, config.debug)
 
 
 @cli.command(name="del")
@@ -131,6 +150,6 @@ def del_command(config, uri, recursive, p):
     Delete COS file or directory
     """
     try:
-        command.cos_del(config.cos_config, uri, recursive, p)
+        command.cos_del(config, uri, recursive, p)
     except Exception as e:
-        raise SystemExit("\n%s" % e)
+        handle_exception(e, config.debug)

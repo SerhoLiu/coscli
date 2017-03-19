@@ -3,8 +3,8 @@
 
 import os
 import time
-from coscli.cos import COS
 
+from coscli.cos import COS
 from coscli.utils import ThreadWorker
 from coscli.utils import ensure_dir_exists, COSUri
 from coscli.utils import output, format_size, sha1_checksum
@@ -12,8 +12,10 @@ from coscli.utils import output, format_size, sha1_checksum
 
 class Uploader(object):
 
-    def __init__(self, cos_config, bucket, tasks, force, checksum):
-        self.cos_config = cos_config
+    def __init__(self, config, bucket, tasks, force, checksum):
+        self.cos_config = config.cos_config
+        self.dry_run = config.dry_run
+
         self.bucket = bucket
         self.tasks = tasks
         self.force = force
@@ -48,7 +50,10 @@ class Uploader(object):
         local_file, cos_dest = task
 
         try:
-            msg = self._do_upload(cos, task)
+            if self.dry_run:
+                msg = "dry run"
+            else:
+                msg = self._do_upload(cos, task)
         except Exception as e:
             msg = str(e)
 
@@ -90,8 +95,10 @@ class Uploader(object):
 
 class Downloader(object):
 
-    def __init__(self, cos_config, bucket, tasks, force, skip, checksum):
-        self.cos_config = cos_config
+    def __init__(self, config, bucket, tasks, force, skip, checksum):
+        self.cos_config = config.cos_config
+        self.dry_run = config.dry_run
+
         self.bucket = bucket
         self.tasks = tasks
         self.force = force
@@ -127,7 +134,10 @@ class Downloader(object):
         cos_path, local_file = task
 
         try:
-            msg = self._do_download(cos, task)
+            if self.dry_run:
+                msg = "dry run"
+            else:
+                msg = self._do_download(cos, task)
         except Exception as e:
             msg = str(e)
 
@@ -174,8 +184,10 @@ class Downloader(object):
 
 class Deleter(object):
 
-    def __init__(self, cos_config, bucket, tasks):
-        self.cos_config = cos_config
+    def __init__(self, config, bucket, tasks):
+        self.cos_config = config.cos_config
+        self.dry_run = config.dry_run
+
         self.bucket = bucket
         self.tasks = tasks
 
@@ -207,11 +219,17 @@ class Deleter(object):
         cos_path = task
 
         try:
-            cos.delete(self.bucket, cos_path)
-            output("(%s/%s) deleted: %s" % (
-                index, total,
-                COSUri.compose_uri(self.bucket, cos_path)
-            ))
+            if self.dry_run:
+                output("(%s/%s) deleted: %s (dry run)" % (
+                    index, total,
+                    COSUri.compose_uri(self.bucket, cos_path)
+                ))
+            else:
+                cos.delete(self.bucket, cos_path)
+                output("(%s/%s) deleted: %s" % (
+                    index, total,
+                    COSUri.compose_uri(self.bucket, cos_path)
+                ))
         except Exception as e:
             output("(%s/%s) delete: %s (%s)" % (
                 index, total,
