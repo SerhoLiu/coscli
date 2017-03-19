@@ -26,12 +26,12 @@ setup(
     include_package_data=True,
     zip_safe=False,
     install_requires=[
-        "click>=2.0",
+        "click>=4.0",
         "qcloud_cos_v4>=0.0.12",
     ],
     entry_points={
         "console_scripts": [
-            "coscli=coscli.__main__:cli"
+            "coscli=coscli.main:cli"
         ]
     },
     license="MIT License",

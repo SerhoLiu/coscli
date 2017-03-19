@@ -41,8 +41,7 @@ pass_config = click.make_pass_decorator(CliConfig)
 
 
 @click.group()
-@click.option("--config",
-              type=click.Path(exists=True, readable=True),
+@click.option("--config", type=click.Path(exists=True, readable=True),
               envvar="COSCLI_CONFIG",
               default="/etc/coscli.cfg",
               help="Changes the coscli config file.")
