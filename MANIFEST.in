@@ -1,3 +1,4 @@
-include README.md
+include README.rst
+include CHANGES.rst
 include MIT-LICENSE.txt
 include coscli-example.cfg
