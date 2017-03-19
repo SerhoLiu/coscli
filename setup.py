@@ -19,7 +19,7 @@ setup(
     version=get_version("coscli"),
     url="https://github.com/SerhoLiu/coscli",
     description="Coscli is simple command line tool for qcloud COS.",
-    long_description=open('README.md').read(),
+    long_description=open('README.rst').read(),
     author="Serho Liu",
     author_email="serholiu@gmail.com",
     packages=["coscli"],
