@@ -81,11 +81,6 @@ def cos_put(cos_config, srcs, uri, force, checksum, p):
     if total == 0:
         return
 
-    # put 到非目录, 需要先检查是否存在同名的目录
-    if total == 1 and not cos_uri.path.endswith("/"):
-        if cos.dir_exists(cos_uri.bucket, cos_uri.path):
-            raise Exception("%s is dir, need end with '/'" % uri)
-
     # 多个文件只能 put 到目录下
     if total > 1 and not cos_uri.path.endswith("/"):
         raise Exception(
