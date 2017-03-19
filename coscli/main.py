@@ -2,11 +2,16 @@
 # -*- coding: utf-8 -*-
 
 import click
+import os.path
 import qcloud_cos as qcos
 from ConfigParser import ConfigParser
 
 from coscli import __version__
 from coscli import command
+
+
+SYSTEM_LEVEL_CONFIG = "/etc/coscli.cfg"
+USER_LEVEL_CONFIG = "~/.coscli.cfg"
 
 
 class CliConfig(object):
@@ -41,9 +46,7 @@ pass_config = click.make_pass_decorator(CliConfig)
 
 
 @click.group()
-@click.option("--config", type=click.Path(exists=True, readable=True),
-              envvar="COSCLI_CONFIG",
-              default="/etc/coscli.cfg",
+@click.option("--config", type=click.Path(), envvar="COSCLI_CONFIG",
               help="Changes the coscli config file.")
 @click.version_option(__version__)
 @click.pass_context
@@ -52,6 +55,15 @@ def cli(ctx, config):
     Coscli is simple command line tool for qcloud cos
     """
     try:
+        if config is None:
+            config = os.path.expanduser(USER_LEVEL_CONFIG)
+            if not os.path.exists(config):
+                config = SYSTEM_LEVEL_CONFIG
+
+        # check is readable
+        with open(config) as f:
+            f.read()
+
         conf = CliConfig(config)
     except Exception as e:
         raise SystemExit("\ncos config error: %s" % e)

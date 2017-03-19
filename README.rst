@@ -19,7 +19,7 @@ coscli - 一个简单的腾讯云 COS 命令行工具, 当前仅支持 Python2
 使用
 ------
 
-配置文件默认为 ``/etc/coscli.cfg``, 可以使用环境变量 ``COSCLI_CONFIG`` 来更改位置,
+配置文件默认为 ``~/.coscli.cfg``, ``/etc/coscli.cfg``, 可以使用环境变量 ``COSCLI_CONFIG`` 来更改位置,
 或者直接使用 ``--config`` 参数配置路径
 
 配置文件采用 INI 格式
