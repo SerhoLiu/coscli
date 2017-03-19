@@ -47,14 +47,23 @@ class Uploader(object):
         sformat = "(%s/%s) upload: %s -> %s (%s)"
         local_file, cos_dest = task
 
+        try:
+            msg = self._do_upload(cos, task)
+        except Exception as e:
+            msg = str(e)
+
+        output(sformat % (
+            index, total,
+            local_file, COSUri.compose_uri(self.bucket, cos_dest),
+            msg
+        ))
+
+    def _do_upload(self, cos, task):
+        local_file, cos_dest = task
+
         if not self.force:
             if cos.file_exists(self.bucket, cos_dest):
-                output(sformat % (
-                    index, total,
-                    local_file, COSUri.compose_uri(self.bucket, cos_dest),
-                    "error: dest exists"
-                ))
-                return
+                return "error: dest exists"
 
         start = time.time()
         cos.upload(self.bucket, cos_dest, local_file)
@@ -63,33 +72,20 @@ class Uploader(object):
         local_size = os.path.getsize(local_file)
         cos_size, _, cos_sha1 = cos.stat_file(self.bucket, cos_dest)
         if local_size != cos_size:
-            output(sformat % (
-                index, total,
-                local_file, COSUri.compose_uri(self.bucket, cos_dest),
-                "error: file size not match"
-            ))
-            return
+            return "error: file size not match"
 
         if self.checksum:
             local_sha1 = sha1_checksum(local_file)
             if local_sha1 != cos_sha1:
-                output(sformat % (
-                    index, total,
-                    local_file, COSUri.compose_uri(self.bucket, cos_dest),
-                    "error: sha1 checksum not match"
-                ))
-                return
+                return "error: sha1 checksum not match"
 
         speed = local_size / cost
-        speed_fmt = format_size(speed, human_readable=True)
+        value, coeff = format_size(speed, human_readable=True)
         msg = "%d bytes in %0.1f seconds, %0.2f%sB/s" % (
-            local_size, cost, speed_fmt[0], speed_fmt[1]
+            local_size, cost, value, coeff
         )
-        output(sformat % (
-            index, total,
-            local_file, COSUri.compose_uri(self.bucket, cos_dest),
-            msg
-        ))
+
+        return msg
 
 
 class Downloader(object):
@@ -130,21 +126,25 @@ class Downloader(object):
         sformat = "(%s/%s) download: %s -> %s (%s)"
         cos_path, local_file = task
 
+        try:
+            msg = self._do_download(cos, task)
+        except Exception as e:
+            msg = str(e)
+
+        output(sformat % (
+            index, total,
+            COSUri.compose_uri(self.bucket, cos_path), local_file,
+            msg
+        ))
+
+    def _do_download(self, cos, task):
+        cos_path, local_file = task
+
         if os.path.exists(local_file):
             if self.skip:
-                output(sformat % (
-                    index, total,
-                    COSUri.compose_uri(self.bucket, cos_path), local_file,
-                    "skip exists"
-                ))
-                return
+                return "skip exists"
             if not self.force:
-                output(sformat % (
-                    index, total,
-                    COSUri.compose_uri(self.bucket, cos_path), local_file,
-                    "error: local file exists"
-                ))
-                return
+                return "error: local file exists"
 
         dirname = os.path.dirname(local_file)
         ensure_dir_exists(dirname)
@@ -156,33 +156,20 @@ class Downloader(object):
         local_size = os.path.getsize(local_file)
         cos_size, _, cos_sha1 = cos.stat_file(self.bucket, cos_path)
         if local_size != cos_size:
-            output(sformat % (
-                index, total,
-                COSUri.compose_uri(self.bucket, cos_path), local_file,
-                "error: file size not match"
-            ))
-            return
+            return "error: file size not match"
 
         if self.checksum:
             local_sha1 = sha1_checksum(local_file)
             if local_sha1 != cos_sha1:
-                output(sformat % (
-                    index, total,
-                    COSUri.compose_uri(self.bucket, cos_path), local_file,
-                    "error: sha1 checksum not match"
-                ))
-                return
+                return "error: sha1 checksum not match"
 
         speed = local_size / cost
         speed_fmt = format_size(speed, human_readable=True)
         msg = "%d bytes in %0.1f seconds, %0.2f%sB/s" % (
             local_size, cost, speed_fmt[0], speed_fmt[1]
         )
-        output(sformat % (
-            index, total,
-            COSUri.compose_uri(self.bucket, cos_path), local_file,
-            msg
-        ))
+
+        return msg
 
 
 class Deleter(object):
@@ -217,11 +204,17 @@ class Deleter(object):
         worker.start()
 
     def _delete(self, total, index, cos, task):
-        sformat = "(%s/%s) deleted: %s"
         cos_path = task
 
-        cos.delete(self.bucket, cos_path)
-        output(sformat % (
-            index, total,
-            COSUri.compose_uri(self.bucket, cos_path)
-        ))
+        try:
+            cos.delete(self.bucket, cos_path)
+            output("(%s/%s) deleted: %s" % (
+                index, total,
+                COSUri.compose_uri(self.bucket, cos_path)
+            ))
+        except Exception as e:
+            output("(%s/%s) delete: %s (%s)" % (
+                index, total,
+                COSUri.compose_uri(self.bucket, cos_path),
+                str(e)
+            ))
