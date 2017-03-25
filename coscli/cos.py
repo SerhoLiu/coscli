@@ -5,6 +5,28 @@ import posixpath
 import qcloud_cos as qcos
 
 
+class COSObject(object):
+    """
+    COS 目录(Prefix) 或文件
+    """
+
+    def __init__(self, path, filesize=None, mtime=None, sha=None):
+        self.path = path
+        self.filesize = filesize
+        self.mtime = mtime
+        self.sha = sha
+
+        self.is_dir = path.endswith("/")
+
+    def ls_cmp_key(self):
+        """
+        ls output 时排序方式
+        - 目录在前
+        - 按 path 顺序排序
+        """
+        return not self.is_dir, self.path
+
+
 class COS(object):
 
     def __init__(self, config):
@@ -54,6 +76,7 @@ class COS(object):
 
         :param bucket: bucket name
         :param path: dir path
+        :rtype COSObject
         """
         data = {"listover": False, "context": u""}
         while not data["listover"]:
@@ -66,7 +89,13 @@ class COS(object):
                 raise Exception(resp["message"])
             data = resp["data"]
             for info in data["infos"]:
-                yield posixpath.join(path, info["name"])
+                obj = COSObject(
+                    posixpath.join(path, info["name"]),
+                    info.get("filesize"),
+                    info.get("mtime"),
+                    info.get("sha")
+                )
+                yield obj
 
     def walk_path(self, bucket, path):
         """
@@ -74,13 +103,14 @@ class COS(object):
 
         :param bucket: bucket name
         :param path: dir path
+        :rtype COSObject
         """
-        for subpath in self.iter_path(bucket, path):
-            if subpath.endswith("/"):
-                for filepath in self.walk_path(bucket, subpath):
-                    yield filepath
+        for obj in self.iter_path(bucket, path):
+            if obj.is_dir:
+                for sub_obj in self.walk_path(bucket, obj.path):
+                    yield sub_obj
             else:
-                yield subpath
+                yield obj
 
     def upload(self, bucket, path, local_file):
         """
@@ -189,6 +219,7 @@ class COS(object):
 
         :param bucket: bucket name
         :param path: cos path
+        :rtype COSObject
         """
         req = qcos.StatFileRequest(unicode(bucket), unicode(path))
         resp = self.client.stat_file(req)
@@ -197,4 +228,4 @@ class COS(object):
 
         info = resp["data"]
 
-        return info["filesize"], info["mtime"], info["sha"]
+        return COSObject(path, info["filesize"], info["mtime"], info["sha"])

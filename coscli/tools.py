@@ -75,13 +75,13 @@ class Uploader(object):
         cost = time.time() - start
 
         local_size = os.path.getsize(local_file)
-        cos_size, _, cos_sha1 = cos.stat_file(self.bucket, cos_dest)
-        if local_size != cos_size:
+        cos_obj = cos.stat_file(self.bucket, cos_dest)
+        if local_size != cos_obj.filesize:
             return "error: file size not match"
 
         if self.checksum:
             local_sha1 = sha1_checksum(local_file)
-            if local_sha1 != cos_sha1:
+            if local_sha1 != cos_obj.sha:
                 return "error: sha1 checksum not match"
 
         speed = local_size / cost
@@ -131,7 +131,7 @@ class Downloader(object):
 
     def _download(self, total, index, cos, task):
         sformat = "(%s/%s) download: %s -> %s (%s)"
-        cos_path, local_file = task
+        cos_obj, local_file = task
 
         try:
             if self.dry_run:
@@ -143,12 +143,12 @@ class Downloader(object):
 
         output(sformat % (
             index, total,
-            COSUri.compose_uri(self.bucket, cos_path), local_file,
+            COSUri.compose_uri(self.bucket, cos_obj.path), local_file,
             msg
         ))
 
     def _do_download(self, cos, task):
-        cos_path, local_file = task
+        cos_obj, local_file = task
 
         if os.path.exists(local_file):
             if self.skip:
@@ -160,17 +160,16 @@ class Downloader(object):
         ensure_dir_exists(dirname)
 
         start = time.time()
-        cos.download(self.bucket, cos_path, local_file)
+        cos.download(self.bucket, cos_obj.path, local_file)
         cost = time.time() - start
 
         local_size = os.path.getsize(local_file)
-        cos_size, _, cos_sha1 = cos.stat_file(self.bucket, cos_path)
-        if local_size != cos_size:
+        if local_size != cos_obj.filesize:
             return "error: file size not match"
 
         if self.checksum:
             local_sha1 = sha1_checksum(local_file)
-            if local_sha1 != cos_sha1:
+            if local_sha1 != cos_obj.sha:
                 return "error: sha1 checksum not match"
 
         speed = local_size / cost

@@ -16,38 +16,32 @@ def cos_ls(config, uri, human):
     cos_uri = COSUri(uri)
 
     if cos.file_exists(cos_uri.bucket, cos_uri.path):
-        paths = [cos_uri.path]
+        cos_objs = [cos.stat_file(cos_uri.bucket, cos_uri.path)]
     elif cos.dir_exists(cos_uri.bucket, cos_uri.path):
         if not cos_uri.path.endswith("/"):
             cos_uri.path += "/"
-        paths = list(cos.iter_path(cos_uri.bucket, cos_uri.path))
+        cos_objs = list(cos.iter_path(cos_uri.bucket, cos_uri.path))
     else:
         output("Path '%s' not exists" % uri)
         return
 
-    # (mtime, size, name)
-    records = []
-    for path in paths:
-        if path.endswith("/"):
-            records.append((
+    output("Found %s items" % len(cos_objs))
+
+    cos_objs.sort(key=lambda x: x.ls_cmp_key())
+    for obj in cos_objs:
+        if obj.is_dir:
+            output("%19s %10s  %s" % (
                 "1970-01-01 00:00:00",
                 "DIR",
-                COSUri.compose_uri(cos_uri.bucket, path)
+                COSUri.compose_uri(cos_uri.bucket, obj.path)
             ))
         else:
-            filesize, mtime, _ = cos.stat_file(cos_uri.bucket, path)
-            size, coeff = format_size(filesize, human)
-            records.append((
-                format_datetime(mtime),
+            size, coeff = format_size(obj.filesize, human)
+            output("%19s %10s  %s" % (
+                format_datetime(obj.mtime),
                 "%s%s" % (size, coeff),
-                COSUri.compose_uri(cos_uri.bucket, path)
+                COSUri.compose_uri(cos_uri.bucket, obj.path)
             ))
-
-    # dir first
-    records.sort(key=lambda r: (r[0], r[2]))
-    output("Found %s items" % len(records))
-    for record in records:
-        output("%19s %10s %s" % record)
 
 
 def cos_put(config, srcs, uri, force, checksum, p):
@@ -125,21 +119,21 @@ def cos_get(config, uri, dst, force, skip, checksum, p):
     cos = COS(config.cos_config)
     cos_uri = COSUri(uri)
 
-    cos_files = []
+    cos_objs = []
     if cos.file_exists(cos_uri.bucket, cos_uri.path):
         is_file = True
-        cos_files.append(cos_uri.path)
+        cos_objs.append(cos.stat_file(cos_uri.bucket, cos_uri.path))
     elif cos.dir_exists(cos_uri.bucket, cos_uri.path):
         is_file = False
         if not cos_uri.path.endswith("/"):
             cos_uri.path += "/"
-        for filepath in cos.walk_path(cos_uri.bucket, cos_uri.path):
-            cos_files.append(filepath)
+        for obj in cos.walk_path(cos_uri.bucket, cos_uri.path):
+            cos_objs.append(obj)
     else:
         output("Path '%s' not exists" % uri)
         return
 
-    total = len(cos_files)
+    total = len(cos_objs)
     output("Found %d items to download" % total)
 
     if total == 0:
@@ -149,23 +143,23 @@ def cos_get(config, uri, dst, force, skip, checksum, p):
     if not os.path.isdir(dst):
         if total > 1:
             raise Exception("dest must a dir when download multiple files.")
-        tasks.append((cos_files[0], dst))
+        tasks.append((cos_objs[0], dst))
     elif os.path.isdir(dst):
         # 下载到本地的文件路径由以下方式决定
         # - cos path 是文件, 则 dst/basename(cos path)
         # - cos path 是文件夹, 则 dst/dir/filename
 
         prefix_len = len(posixpath.dirname(cos_uri.path.rstrip("/")))
-        for cos_path in cos_files:
+        for obj in cos_objs:
             if is_file:
-                local_file = os.path.join(dst, posixpath.basename(cos_path))
+                local_file = os.path.join(dst, posixpath.basename(obj.path))
             else:
                 local_file = os.path.join(
-                    dst, cos_path[prefix_len:].lstrip("/")
+                    dst, obj.path[prefix_len:].lstrip("/")
                 )
                 if os.path.sep != "/":
                     local_file = os.path.sep.join(local_file.split("/"))
-            tasks.append((cos_path, local_file))
+            tasks.append((obj, local_file))
     else:
         raise Exception("WTF? Is it a dir or not? -- %s" % dst)
 
@@ -192,8 +186,8 @@ def cos_del(config, uri, recursive, p):
 
         if not cos_uri.path.endswith("/"):
             cos_uri.path += "/"
-        for filepath in cos.walk_path(cos_uri.bucket, cos_uri.path):
-            cos_files.append(filepath)
+        for obj in cos.walk_path(cos_uri.bucket, cos_uri.path):
+            cos_files.append(obj.path)
     else:
         output("Path '%s' not exists" % uri)
         return
@@ -239,8 +233,8 @@ def cos_mv_copy(action, config, usrc, udst, force, recursive, p):
         is_file = False
         if not src_uri.path.endswith("/"):
             src_uri.path += "/"
-        for filepath in cos.walk_path(src_uri.bucket, src_uri.path):
-            cos_files.append(filepath)
+        for obj in cos.walk_path(src_uri.bucket, src_uri.path):
+            cos_files.append(obj.path)
     else:
         output("Path '%s' not exists" % usrc)
         return
