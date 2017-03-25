@@ -92,14 +92,16 @@ def cli(ctx, config, dryrun, debug):
 
 @cli.command(name="ls")
 @click.argument("uri", nargs=1)
+@click.option("--recursive", "-r", is_flag=True,
+              help="Enable recursive list.")
 @click.option("--human", "-h", is_flag=True, help="Enable human readable.")
 @pass_config
-def ls_command(config, uri, human):
+def ls_command(config, uri, recursive, human):
     """
     List path file or directory
     """
     try:
-        command.cos_ls(config, uri, human)
+        command.cos_ls(config, uri, recursive, human)
     except Exception as e:
         handle_exception(e, config.debug)
 

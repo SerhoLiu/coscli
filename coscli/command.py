@@ -11,7 +11,26 @@ from coscli.utils import format_datetime, format_size, list_dir_files
 from coscli.tools import Uploader, Downloader, Deleter, MoveCopyer
 
 
-def cos_ls(config, uri, human):
+def _cos_obj_output(obj, bucket, human):
+    """
+    :type obj: COSObject
+    """
+    if obj.is_dir:
+        output("%19s %10s  %s" % (
+            "1970-01-01 00:00:00",
+            "DIR",
+            COSUri.compose_uri(bucket, obj.path)
+        ))
+    else:
+        size, coeff = format_size(obj.filesize, human)
+        output("%19s %10s  %s" % (
+            format_datetime(obj.mtime),
+            "%s%s" % (size, coeff),
+            COSUri.compose_uri(bucket, obj.path)
+        ))
+
+
+def cos_ls(config, uri, recursive, human):
     cos = COS(config.cos_config)
     cos_uri = COSUri(uri)
 
@@ -20,6 +39,15 @@ def cos_ls(config, uri, human):
     elif cos.dir_exists(cos_uri.bucket, cos_uri.path):
         if not cos_uri.path.endswith("/"):
             cos_uri.path += "/"
+
+        if recursive:
+            total = 0
+            for obj in cos.walk_path(cos_uri.bucket, cos_uri.path):
+                total += 1
+                _cos_obj_output(obj, cos_uri.bucket, human)
+            output("Found %s items" % total)
+            return
+
         cos_objs = list(cos.iter_path(cos_uri.bucket, cos_uri.path))
     else:
         output("Path '%s' not exists" % uri)
@@ -29,19 +57,7 @@ def cos_ls(config, uri, human):
 
     cos_objs.sort(key=lambda x: x.ls_cmp_key())
     for obj in cos_objs:
-        if obj.is_dir:
-            output("%19s %10s  %s" % (
-                "1970-01-01 00:00:00",
-                "DIR",
-                COSUri.compose_uri(cos_uri.bucket, obj.path)
-            ))
-        else:
-            size, coeff = format_size(obj.filesize, human)
-            output("%19s %10s  %s" % (
-                format_datetime(obj.mtime),
-                "%s%s" % (size, coeff),
-                COSUri.compose_uri(cos_uri.bucket, obj.path)
-            ))
+        _cos_obj_output(obj, cos_uri.bucket, human)
 
 
 def cos_put(config, srcs, uri, force, checksum, p):
