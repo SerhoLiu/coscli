@@ -150,6 +150,39 @@ class COS(object):
         if resp["code"] != 0:
             raise Exception(resp["message"])
 
+    def copy(self, bucket, src_path, dest_path):
+        """
+        拷贝 COS 文件, 将覆盖已存在的文件
+
+        :param bucket: bucket name
+        :param src_path: src cos path
+        :param dest_path: dest cos path
+        """
+        # 由于官方 sdk 还没有提供 copy api, 这里 hack 一下
+        auth = qcos.Auth(self.client._cred)
+        bucket = unicode(bucket)
+        cos_path = unicode(src_path)
+        sign = auth.sign_once(bucket, cos_path)
+
+        http_header = dict()
+        http_header["Authorization"] = sign
+        http_header["User-Agent"] = self.client._config.get_user_agent()
+
+        http_body = dict()
+        http_body["op"] = "copy"
+        http_body["dest_fileid"] = unicode(dest_path)
+        http_body["to_over_write"] = "1"
+
+        timeout = self.client._config.get_timeout()
+        resp = self.client._file_op.send_request(
+            "POST", bucket, cos_path,
+            headers=http_header,
+            params=http_body,
+            timeout=timeout
+        )
+        if resp["code"] != 0:
+            raise Exception(resp["message"])
+
     def stat_file(self, bucket, path):
         """
         获取 COS 文件属性

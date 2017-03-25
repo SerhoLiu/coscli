@@ -8,7 +8,7 @@ import posixpath
 from coscli.cos import COS
 from coscli.utils import COSUri, output
 from coscli.utils import format_datetime, format_size, list_dir_files
-from coscli.tools import Uploader, Downloader, Deleter, Mover
+from coscli.tools import Uploader, Downloader, Deleter, MoveCopyer
 
 
 def cos_ls(config, uri, human):
@@ -211,13 +211,16 @@ def cos_del(config, uri, recursive, p):
         deleter.simple_delete()
 
 
-def cos_mv(config, usrc, udst, force, recursive, p):
+def cos_mv_copy(action, config, usrc, udst, force, recursive, p):
+    if action not in ("mv", "copy"):
+        raise Exception("not support '%s' action" % action)
+
     cos = COS(config.cos_config)
     src_uri = COSUri(usrc)
     dst_uri = COSUri(udst)
 
     if src_uri.bucket != dst_uri.bucket:
-        output("Cos mv should in same bucket")
+        output("Cos %s should in same bucket" % action)
         return
 
     cos_files = []
@@ -230,7 +233,7 @@ def cos_mv(config, usrc, udst, force, recursive, p):
             return
 
         if not dst_uri.path.endswith("/"):
-            output("Dst '%s' must dir, need endswith '/'" % udst)
+            output("Dest '%s' must dir, need endswith '/'" % udst)
             return
 
         is_file = False
@@ -243,7 +246,7 @@ def cos_mv(config, usrc, udst, force, recursive, p):
         return
 
     total = len(cos_files)
-    output("Found %d items to mv" % total)
+    output("Found %d items to %s" % (total, action))
 
     if total == 0:
         return
@@ -263,8 +266,8 @@ def cos_mv(config, usrc, udst, force, recursive, p):
 
         tasks.append((cos_file, dest))
 
-    mover = Mover(config, src_uri.bucket, tasks, force)
+    mover = MoveCopyer(action, config, src_uri.bucket, tasks, force)
     if p > 1:
-        mover.parallel_move(p)
+        mover.parallel_move_copy(p)
     else:
-        mover.simple_move()
+        mover.simple_move_copy()

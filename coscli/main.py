@@ -167,6 +167,24 @@ def mv_command(config, usrc, udst, force, recursive, p):
     Mv COS file or directory to other COS local
     """
     try:
-        command.cos_mv(config, usrc, udst, force, recursive, p)
+        command.cos_mv_copy("mv", config, usrc, udst, force, recursive, p)
+    except Exception as e:
+        handle_exception(e, config.debug)
+
+
+@cli.command(name="copy")
+@click.argument("usrc", nargs=1)
+@click.argument("udst", nargs=1)
+@click.option("--force", "-f", is_flag=True, help="Enable overwrite exists.")
+@click.option("--recursive", "-r", is_flag=True,
+              help="Enable recursive copy.")
+@click.option("--p", default=1, help="Use parallel download")
+@pass_config
+def copy_command(config, usrc, udst, force, recursive, p):
+    """
+    Copy COS file or directory to other COS local
+    """
+    try:
+        command.cos_mv_copy("copy", config, usrc, udst, force, recursive, p)
     except Exception as e:
         handle_exception(e, config.debug)

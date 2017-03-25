@@ -238,9 +238,11 @@ class Deleter(object):
             ))
 
 
-class Mover(object):
+class MoveCopyer(object):
 
-    def __init__(self, config, bucket, tasks, force):
+    def __init__(self, action, config, bucket, tasks, force):
+        self.action = action
+
         self.cos_config = config.cos_config
         self.dry_run = config.dry_run
 
@@ -248,14 +250,14 @@ class Mover(object):
         self.tasks = tasks
         self.force = force
 
-    def simple_move(self):
+    def simple_move_copy(self):
         cos = COS(self.cos_config)
 
         total = len(self.tasks)
         for index, task in enumerate(self.tasks):
-            self._move(total, index+1, cos, task)
+            self._move_copy(total, index+1, cos, task)
 
-    def parallel_move(self, count):
+    def parallel_move_copy(self, count):
 
         def setup():
             return COS(self.cos_config)
@@ -263,7 +265,7 @@ class Mover(object):
         def work(ctx, job):
             cos = ctx
             _total, _index, _task = job
-            self._move(_total, _index, cos, _task)
+            self._move_copy(_total, _index, cos, _task)
 
         worker = ThreadWorker(count, setup=setup, work=work)
         total = len(self.tasks)
@@ -272,32 +274,38 @@ class Mover(object):
 
         worker.start()
 
-    def _move(self, total, index, cos, task):
-        sformat = "(%s/%s) mv: %s -> %s (%s)"
+    def _move_copy(self, total, index, cos, task):
+        sformat = "(%s/%s) %s: %s -> %s (%s)"
         cos_src, cos_dest = task
 
         try:
             if self.dry_run:
                 msg = "dry run"
             else:
-                msg = self._do_mv(cos, task)
+                msg = self._do_move_copy(cos, task)
         except Exception as e:
             msg = str(e)
 
         output(sformat % (
             index, total,
+            self.action,
             COSUri.compose_uri(self.bucket, cos_src),
             COSUri.compose_uri(self.bucket, cos_dest),
             msg
         ))
 
-    def _do_mv(self, cos, task):
+    def _do_move_copy(self, cos, task):
         cos_src, cos_dest = task
 
         if not self.force:
             if cos.file_exists(self.bucket, cos_dest):
                 return "error: dest exists"
 
-        cos.move(self.bucket, cos_src, cos_dest)
+        if self.action == "mv":
+            cos.move(self.bucket, cos_src, cos_dest)
+        elif self.action == "copy":
+            cos.copy(self.bucket, cos_src, cos_dest)
+        else:
+            return "error: unkown op"
 
         return "ok"
