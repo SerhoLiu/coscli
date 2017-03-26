@@ -190,3 +190,19 @@ def copy_command(config, usrc, udst, force, recursive, p):
         command.cos_mv_copy("copy", config, usrc, udst, force, recursive, p)
     except Exception as e:
         handle_exception(e, config.debug)
+
+
+@cli.command(name="du")
+@click.argument("uri", nargs=1)
+@click.option("-s", is_flag=True,
+              help="Display an entry for each specified file")
+@click.option("--human", "-h", is_flag=True, help="Enable human readable.")
+@pass_config
+def du_command(config, uri, s, human):
+    """
+    Displays sizes of files and directories contained in the given directory
+    """
+    try:
+        command.cos_du(config, uri, s, human)
+    except Exception as e:
+        handle_exception(e, config.debug)

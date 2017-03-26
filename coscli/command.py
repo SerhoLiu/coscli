@@ -5,7 +5,7 @@ import os
 import glob
 import posixpath
 
-from coscli.cos import COS
+from coscli.cos import COS, COSObject
 from coscli.utils import COSUri, output
 from coscli.utils import format_datetime, format_size, list_dir_files
 from coscli.tools import Uploader, Downloader, Deleter, MoveCopyer
@@ -281,3 +281,40 @@ def cos_mv_copy(action, config, usrc, udst, force, recursive, p):
         mover.parallel_move_copy(p)
     else:
         mover.simple_move_copy()
+
+
+def cos_du(config, uri, s, human):
+    cos = COS(config.cos_config)
+    cos_uri = COSUri(uri)
+
+    if cos.file_exists(cos_uri.bucket, cos_uri.path):
+        cos_objs = [cos.stat_file(cos_uri.bucket, cos_uri.path)]
+    elif cos.dir_exists(cos_uri.bucket, cos_uri.path):
+        if not cos_uri.path.endswith("/"):
+            cos_uri.path += "/"
+        if s:
+            cos_objs = cos.iter_path(cos_uri.bucket, cos_uri.path)
+        else:
+            cos_objs = [COSObject(cos_uri.path)]
+    else:
+        output("Path '%s' not exists" % uri)
+        return
+
+    records = []
+    for cos_obj in cos_objs:
+        size = 0
+        if cos_obj.is_dir:
+            for obj in cos.walk_path(cos_uri.bucket, cos_obj.path):
+                size += obj.filesize
+        else:
+            size = cos_obj.filesize
+
+        records.append((cos_obj, size))
+
+    records.sort(key=lambda x: x[0].ls_cmp_key())
+    for obj, size in records:
+        size, coeff = format_size(size, human)
+        output("%10s  %s" % (
+            "%s%s" % (size, coeff),
+            COSUri.compose_uri(cos_uri.bucket, obj.path)
+        ))
