@@ -206,3 +206,23 @@ def du_command(config, uri, s, human):
         command.cos_du(config, uri, s, human)
     except Exception as e:
         handle_exception(e, config.debug)
+
+
+@cli.command(name="test")
+@click.argument("uri", nargs=1)
+@click.option("-d", is_flag=True, help="Test the path is a directory")
+@click.option("-e", is_flag=True, help="Test the path exists")
+@click.option("-f", is_flag=True, help="Test the path is a file")
+@pass_config
+def test_command(config, uri, d, e, f):
+    """
+    Test give path is exists
+    """
+    if not (d or e or f):
+        raise SystemExit("error: test need flag -d/-e/-f")
+
+    try:
+        test = command.cos_test(config, uri, d, e, f)
+        sys.exit(0 if test else 1)
+    except Exception as e:
+        handle_exception(e, config.debug)

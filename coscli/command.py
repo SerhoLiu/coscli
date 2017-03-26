@@ -318,3 +318,19 @@ def cos_du(config, uri, s, human):
             "%s%s" % (size, coeff),
             COSUri.compose_uri(cos_uri.bucket, obj.path)
         ))
+
+
+def cos_test(config, uri, d, e, f):
+    cos = COS(config.cos_config)
+    cos_uri = COSUri(uri)
+
+    file_exists = cos.file_exists(cos_uri.bucket, cos_uri.path)
+    if f:
+        return file_exists
+
+    dir_exists = cos.dir_exists(cos_uri.bucket, cos_uri.path)
+    if d:
+        return dir_exists
+
+    if e:
+        return file_exists or dir_exists
