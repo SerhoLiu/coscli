@@ -55,6 +55,10 @@ class Uploader(object):
             else:
                 msg = self._do_upload(cos, task)
         except Exception as e:
+            try:
+                cos.delete(self.bucket, cos_dest)
+            except Exception:
+                pass
             msg = str(e)
 
         output(sformat % (
@@ -77,12 +81,12 @@ class Uploader(object):
         local_size = os.path.getsize(local_file)
         cos_obj = cos.stat_file(self.bucket, cos_dest)
         if local_size != cos_obj.filesize:
-            return "error: file size not match"
+            raise Exception("error: file size not match")
 
         if self.checksum:
             local_sha1 = sha1_checksum(local_file)
             if local_sha1 != cos_obj.sha:
-                return "error: sha1 checksum not match"
+                raise Exception("error: sha1 checksum not match")
 
         speed = local_size / cost
         value, coeff = format_size(speed, human_readable=True)
